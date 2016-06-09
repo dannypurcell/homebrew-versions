@@ -5,55 +5,34 @@ class Protobuf241 < Formula
 
   bottle do
     cellar :any
-    sha256 "ee9fea383fceb77512ea1ff1e5d49f615e099df5971a4c69a9d4d83840b24e56" => :yosemite
-    sha256 "1b4272b801679a59d05050af402a55a17b759409884e455f212a056ff485e653" => :mavericks
-    sha256 "5ee898191f6e0453427f837ba7db8e2bd39294ea270efd28927d52f05bc4f59c" => :mountain_lion
+    sha256 "c14c1540dace3c5b6aeb588717d207cf7a9ff1c329644bf845a6926e04d3a6b6" => :yosemite
+    sha256 "cfb9af41e793e8fd82d30d8ea36c1de59dc5f332bf19fa4a7a458bc34f8e1012" => :mavericks
+    sha256 "f420e53bf18ce45d17e2c456907347073b2982a089da856379e69bdec42457b2" => :mountain_lion
   end
 
-  conflicts_with "protobuf", :because => "conflicts with protobuf in main repository."
+  keg_only "Conflicts with protobuf in main repository."
 
   option :universal
-  option :cxx11
-
-  # this will double the build time approximately if enabled
-  option "with-check", "Run build-time check"
-
-  depends_on :python => :optional
 
   fails_with :llvm do
     build 2334
   end
 
+  # Fix build with clang and libc++
+  patch :DATA
+
   def install
     # Don't build in debug mode. See:
-    # https://github.com/Homebrew/homebrew/issues/9279
+    # https://github.com/homebrew/homebrew/issues/9279
     ENV.prepend "CXXFLAGS", "-DNDEBUG"
     ENV.universal_binary if build.universal?
-    ENV.cxx11 if build.cxx11?
-
-    system "./configure", "--disable-debug",
-                          "--disable-dependency-tracking",
-                          "--prefix=#{prefix}",
-                          "--with-zlib"
+    system "./configure", "--disable-debug", "--disable-dependency-tracking",
+                          "--prefix=#{prefix}", "--with-zlib"
     system "make"
-    system "make", "check" if build.with? "check" || build.bottle?
     system "make", "install"
 
     # Install editor support and examples
     doc.install "editors", "examples"
-
-    if build.with? "python"
-      chdir "python" do
-        ENV["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = "cpp"
-        ENV.append_to_cflags "-I#{include}"
-        ENV.append_to_cflags "-L#{lib}"
-        args = Language::Python.setup_install_args libexec
-        system "python", *args
-      end
-      site_packages = "lib/python2.7/site-packages"
-      pth_contents = "import site; site.addsitedir('#{libexec/site_packages}')\n"
-      (prefix/site_packages/"homebrew-protobuf.pth").write pth_contents
-    end
   end
 
   def caveats; <<-EOS.undent
@@ -72,7 +51,7 @@ class Protobuf241 < Formula
         repeated TestCase case = 1;
       }
     EOS
+
     system bin/"protoc", "test.proto", "--cpp_out=."
-    system "python", "-c", "import google.protobuf" if build.with? "python"
   end
 end
